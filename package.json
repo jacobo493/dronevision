@@ -1,0 +1,20 @@
+{
+  "name": "backdrone",
+  "version": "1.0.0",
+  "description": "Backend for drone control",
+  "main": "index.js",
+  "dependencies": {
+    "async": "^2.6.1",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "form-data": "^2.3.2",
+    "tedious": "^2.6.4",
+    "uuid": "^3.3.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "i are baboon",
+  "license": "ISC"
+}
