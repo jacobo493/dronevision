@@ -49,13 +49,13 @@ function createDatabaseConnection() {
 
 function startImageUpload() {
     console.log("scheduling image upload");
-    setTimeout(loadPendingImages, 10000);
+    setTimeout(loadPendingImages, 3000000);
 }
 
 async function loadPendingImages() {
     console.log("Starting image upload");
     var request = new DBRequest(
-        "SELECT * FROM image WHERE processed_at IS NULL",
+        "SELECT i.data, r.inventory_id FROM image AS i INNER JOIN run AS r ON i.run_id = r.id WHERE processed_at IS NULL",
         function (err, rowCount, rows) {
             console.log(rowCount + ' pending image(s) returned');
             startImageUpload();
@@ -77,7 +77,7 @@ function pushImage(data) {
     var coords = data.name.match(/x([0-9]*)_y([0-9]*)/);
     var xPos = 0;
     var yPos = 0;
-    if (coords != null) {
+    if (coords !== null) {
         xPos = coords.length >= 2 ? coords[1] : 0;
         yPos = coords.length >= 3 ? coords[2] : 0;
     }

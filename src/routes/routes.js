@@ -1,6 +1,7 @@
 const uuid = require('uuid/v4');
 const DBRequest = require('tedious').Request;
 const TYPES = require('tedious').TYPES;
+const https = require('https');
 
 const CONFIG = '{ "points": [] }';
 
@@ -16,7 +17,8 @@ module.exports = function (app, db, ai) {
         loadConfiguration(db, req, res);
     });
     app.post('/api/v1/run', (req, res) => {
-        createRun(db, req, res);
+        fetchInventoryId(db, req, res);
+        //createRun(db, req, res);
     });
     app.patch('/api/v1/run/:runId', (req, res) => {
         updateRun(db, req, res);
@@ -111,14 +113,55 @@ module.exports = function (app, db, ai) {
         db.execSql(request);
     };
 
-    createRun = function (db, req, res) {
+    fetchInventoryId = function (db, req, res) {
+        var host = process.env.BC_HOST;
+        var path = encodeURI(process.env.BC_PATH);
+        var user = process.env.BC_USER;
+        var passwd = process.env.BC_PASSWD;
+        var auth = Buffer.from(`${user}:${passwd}`).toString('base64');
+        var options = {
+            hostname: host,
+            port: 443,
+            path: path,
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${auth}`
+            }
+        };
+
+        var request = https.request(options, (response) => {
+            console.log(`Received inventory id response, status: ${response.statusCode}`);
+            var id;
+            response.setEncoding('utf8');
+            response.on('data', (chunk) => {
+                id = JSON.parse(chunk).value[0].No;
+                console.log(`inventory id for run: ${id}`);
+                createRun(db, req, res, id);
+            });
+            response.on('end', () => {
+                console.log('No more data in response.');
+            });
+            if (response.statusCode == 200) {
+                console.log('success');
+            }
+        });
+        request.on('error', (e) => {
+            console.error(`problem with request: ${e.message}`);
+        });
+
+        request.end();
+
+    }
+
+    createRun = function (db, req, res, inventoryId) {
         var runId = uuid();
         var deviceId = req.body.device_id;
         var storageId = req.body.storage_id
         var configurationId = req.body.configuration_id;
-        console.log('creating new run with id ' + runId);
+        console.log(`creating new run with id ${runId} for inventory id ${inventoryId}`);
         var request = new DBRequest(
-            "INSERT INTO run(id, storage_id, device_id, configuration_id, started_at) VALUES (@id, @sid, @did, @cid, @dt)",
+            "INSERT INTO run(id, storage_id, device_id, configuration_id, started_at, inventory_id) VALUES (@id, @sid, @did, @cid, @dt, @iid)",
             function (err) {
                 if (err) {
                     console.log(`received error ${err}`);
@@ -134,6 +177,7 @@ module.exports = function (app, db, ai) {
         request.addParameter('sid', TYPES.UniqueIdentifier, storageId);
         request.addParameter('cid', TYPES.UniqueIdentifier, configurationId);
         request.addParameter('dt', TYPES.DateTime, new Date());
+        request.addParameter('iid', TYPES.Int, inventoryId);
 
         db.execSql(request);
     };
